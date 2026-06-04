@@ -1,0 +1,11 @@
+zig-out/
+.zig-cache/
+*.o
+/tmp/
+/rinha-test/results.json
+/rinha-test/.k6/
+rinha-test/test-data.json
+rinha-test/test_local.js
+tools/__pycache__/
+tools/leaf_safe_a_new.zig
+docker-compose.yml.bak*

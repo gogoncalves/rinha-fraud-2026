@@ -1,0 +1,21 @@
+# Local override — Docker Desktop on macOS counts mmap pages in cgroup,
+# native Linux doesn't. Bumps memory so the same submission can run locally.
+# The submission compose limits are what the contest uses; this is local-only.
+services:
+  api1:
+    deploy:
+      resources:
+        limits:
+          memory: 400MB
+  api2:
+    deploy:
+      resources:
+        limits:
+          memory: 400MB
+  lb:
+    deploy:
+      resources:
+        limits:
+          memory: 100MB
+    ports: !override
+      - "19999:9999"
