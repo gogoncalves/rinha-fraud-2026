@@ -1,0 +1,7 @@
+{
+  "participants": ["Gustavo Gonçalves"],
+  "social": ["https://github.com/gogoncalves", "https://linkedin.com/in/gogoncalves"],
+  "source-code-repo": "https://github.com/gogoncalves/rinha-fraud-2026",
+  "stack": ["zig", "ivf", "avx2", "epoll", "scm_rights", "multi-worker"],
+  "open_to_work": true
+}

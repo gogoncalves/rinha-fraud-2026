@@ -1,0 +1,88 @@
+services:
+  api1:
+    image: gugagoncalves/rinha-2026-fraud:v37
+    platform: linux/amd64
+    cpuset: "0"
+    logging:
+      driver: "none"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock: -1
+    environment:
+      API_SOCKET_PREFIX: /sock/api1
+      API_WORKERS: "1"
+      MLOCK: "1"
+    volumes:
+      - sock:/sock
+    network_mode: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.475"
+          memory: "160MB"
+
+  api2:
+    image: gugagoncalves/rinha-2026-fraud:v37
+    platform: linux/amd64
+    cpuset: "1"
+    logging:
+      driver: "none"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock: -1
+    environment:
+      API_SOCKET_PREFIX: /sock/api2
+      API_WORKERS: "1"
+      MLOCK: "1"
+    volumes:
+      - sock:/sock
+    network_mode: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.475"
+          memory: "160MB"
+
+  lb:
+    image: gugagoncalves/rinha-2026-fraud:v37
+    platform: linux/amd64
+    cpuset: "2,3"
+    entrypoint: ["/lb"]
+    logging:
+      driver: "none"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    environment:
+      LB_PORT: "9999"
+      LB_BACKLOG: "65535"
+      LB_ACCEPT_BATCH: "128"
+      API_SOCKETS: "/sock/api1-w0.sock,/sock/api2-w0.sock"
+    volumes:
+      - sock:/sock
+    depends_on: [api1, api2]
+    ports:
+      - "9999:9999"
+    networks: [rinha]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: "30MB"
+
+volumes:
+  sock:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=4m,uid=0,gid=0,mode=0777"
+
+networks:
+  rinha:
+    driver: bridge

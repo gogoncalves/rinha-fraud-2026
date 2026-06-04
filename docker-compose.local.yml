@@ -1,0 +1,75 @@
+services:
+  api1:
+    image: rinha-fraud:test
+    cpuset: "0"
+    environment:
+      API_SOCKET_PREFIX: /sock/api1
+      API_WORKERS: "2"
+      MLOCK: "0"
+      EPOLL_BUSY_POLL_US: "100"
+      EPOLL_BUSY_POLL_BUDGET: "8"
+      EPOLL_PREFER_BUSY_POLL: "1"
+      EPOLL_SPIN_US: "200"
+      EPOLL_IDLE_US: "5000"
+    volumes:
+      - sock:/sock
+    networks: [rinha]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.475"
+          memory: "300MB"
+
+  api2:
+    image: rinha-fraud:test
+    cpuset: "1"
+    environment:
+      API_SOCKET_PREFIX: /sock/api2
+      API_WORKERS: "2"
+      MLOCK: "0"
+      EPOLL_BUSY_POLL_US: "100"
+      EPOLL_BUSY_POLL_BUDGET: "8"
+      EPOLL_PREFER_BUSY_POLL: "1"
+      EPOLL_SPIN_US: "200"
+      EPOLL_IDLE_US: "5000"
+    volumes:
+      - sock:/sock
+    networks: [rinha]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.475"
+          memory: "300MB"
+
+  lb:
+    image: rinha-fraud:test
+    cpuset: "2,3"
+    entrypoint: ["/lb"]
+    environment:
+      LB_PORT: "9999"
+      LB_BACKLOG: "65535"
+      LB_ACCEPT_BATCH: "128"
+      API_SOCKETS: "/sock/api1-w0.sock,/sock/api1-w1.sock,/sock/api2-w0.sock,/sock/api2-w1.sock"
+    volumes:
+      - sock:/sock
+    depends_on: [api1, api2]
+    ports:
+      - "9999:9999"
+    networks: [rinha]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: "30MB"
+
+volumes:
+  sock:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=4m,uid=0,gid=0,mode=0777"
+
+networks:
+  rinha:
+    driver: bridge
