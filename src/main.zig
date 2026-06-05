@@ -51,6 +51,13 @@ const Worker = struct {
     }
 
     fn run(self: *Worker) !void {
+        // Per-thread scheduling tweaks. Both best-effort: shrink timer slack
+        // from the default 50µs to 1ns (cuts wake-up jitter on p99) and promote
+        // to SCHED_FIFO so an inbound packet preempts SCHED_OTHER context
+        // (softirq, client work). Return values ignored — running without
+        // CAP_SYS_NICE / RLIMIT_RTPRIO degrades gracefully to SCHED_OTHER.
+        tunePerThreadSched();
+
         self.epfd = try posix.epoll_create1(linux.EPOLL.CLOEXEC);
         defer posix.close(self.epfd);
 
@@ -372,6 +379,10 @@ pub fn main() !void {
 }
 
 fn runWarmup(idx: *const Index) void {
+    // Default 800ms (proven on v37). Contest can bump via WARMUP_MS=5000 in
+    // compose to prime branch predictor, L1i, page cache and the k6 client
+    // connection pool ramp-up window. Reference: top-bmtec API_WARMUP_QUERIES
+    // = 2048 + top-fksegundo-tree RINHA_SELF_WARMUP_DURATION_MS=30000.
     var ms: u64 = 800;
     if (std.c.getenv("WARMUP_MS")) |p| {
         const v = std.mem.span(p);
@@ -485,6 +496,31 @@ fn epollWaitBlocking(epfd: posix.fd_t, events: []linux.epoll_event, idle_us: u64
         const timeout_ms: i32 = if (idle_us == 0) -1 else @intCast(@max(@as(u64, 1), (idle_us + 999) / 1000));
         const got = posix.epoll_wait(epfd, events, timeout_ms);
         return got;
+    }
+}
+
+// Best-effort per-thread scheduler tweaks. Mirrors the piassa-asm path:
+//   prctl(PR_SET_TIMERSLACK, 1)  → default 50µs slack → 1ns
+//   sched_setscheduler(0, FIFO, prio=$API_RT_PRIO)  [opt-in]
+// Both can EPERM without CAP_SYS_NICE; both ignore failure so the worker still
+// boots in container environments that refuse realtime promotion.
+// SCHED_FIFO is opt-in via API_RT_PRIO=N because in CFS-throttled cgroups
+// (CPU < 1.0) realtime promotion causes 50-93ms cgroup-bandwidth stalls when
+// the quota expires. In contest cpuset (0.475 CPU per worker on dedicated
+// cores) the kernel runs the FIFO thread within the quota window with no
+// preemption — exactly the latency reduction we want.
+fn tunePerThreadSched() void {
+    const PR_SET_TIMERSLACK: i32 = 29;
+    _ = linux.prctl(PR_SET_TIMERSLACK, 1, 0, 0, 0);
+
+    var rt_prio: i32 = 0;
+    if (std.c.getenv("API_RT_PRIO")) |p| {
+        const v = std.mem.span(p);
+        rt_prio = std.fmt.parseInt(i32, v, 10) catch 0;
+    }
+    if (rt_prio > 0) {
+        const param = linux.sched_param{ .priority = rt_prio };
+        _ = linux.sched_setscheduler(0, .{ .mode = .FIFO }, &param);
     }
 }
 
