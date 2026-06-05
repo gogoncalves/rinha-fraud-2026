@@ -1,6 +1,6 @@
 services:
   api1:
-    image: gugagoncalves/rinha-2026-fraud:v55
+    image: gugagoncalves/rinha-2026-fraud:v37
     platform: linux/amd64
     cpuset: "0"
     logging:
@@ -22,11 +22,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.49"
+          cpus: "0.475"
           memory: "160MB"
 
   api2:
-    image: gugagoncalves/rinha-2026-fraud:v55
+    image: gugagoncalves/rinha-2026-fraud:v37
     platform: linux/amd64
     cpuset: "1"
     logging:
@@ -48,11 +48,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.49"
+          cpus: "0.475"
           memory: "160MB"
 
   lb:
-    image: gugagoncalves/rinha-2026-fraud:v55
+    image: gugagoncalves/rinha-2026-fraud:v37
     platform: linux/amd64
     cpuset: "2,3"
     entrypoint: ["/lb"]
@@ -76,7 +76,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.02"
+          cpus: "0.05"
           memory: "30MB"
 
 volumes:
