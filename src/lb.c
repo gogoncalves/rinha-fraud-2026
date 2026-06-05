@@ -101,6 +101,37 @@ static int wait_for_socket(const char *path) {
 }
 
 /*
+ * Inline /ready short-circuit. Peeks the first bytes of the request without
+ * consuming them and, if it looks like a GET /ready (no path suffix), replies
+ * 200 OK directly from the LB and closes. Saves the SCM_RIGHTS cross + worker
+ * wakeup for every Docker/contest health check. Reference: whereisanzi
+ * crates/lb/src/main.rs::peek_is_health.
+ */
+static const char READY_RESP[] =
+    "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok";
+
+static int try_serve_ready(int cfd) {
+    char buf[64];
+    ssize_t n = recv(cfd, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
+    if (n < (ssize_t)sizeof("GET /ready") - 1) return 0;
+    if (memcmp(buf, "GET /ready", 10) != 0) return 0;
+    /* Confirm boundary: next char must be ' ', '?', or end-of-buffer-not-yet-arrived
+     * (we already peeked 10 bytes). The lb never serves other GET /ready* routes,
+     * so accept space, '?', '\r' as the boundary. */
+    char c = buf[10];
+    if (c != ' ' && c != '?' && c != '\r' && c != '\n') return 0;
+    const char *resp = READY_RESP;
+    size_t left = sizeof(READY_RESP) - 1;
+    while (left > 0) {
+        ssize_t s = send(cfd, resp, left, MSG_NOSIGNAL);
+        if (s > 0) { resp += s; left -= (size_t)s; continue; }
+        if (s < 0 && errno == EINTR) continue;
+        break;
+    }
+    return 1;
+}
+
+/*
  * Drain whatever bytes are already sitting in the TCP receive buffer for cfd.
  * Non-blocking; returns the number of bytes consumed (0..MAX_PREFIX). Anything
  * we read here MUST be forwarded — the worker will not see these bytes by
@@ -236,6 +267,11 @@ int main(int argc, char **argv) {
             int one = 1;
             setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
             setsockopt(cfd, IPPROTO_TCP, TCP_QUICKACK, &one, sizeof(one));
+
+            /* Short-circuit /ready at the LB so Docker/contest health checks
+             * never wake an API worker. TCP_DEFER_ACCEPT guarantees data is
+             * already in the receive buffer before accept returns. */
+            if (try_serve_ready(cfd)) { close(cfd); continue; }
 
             int target = rr;
             rr = (rr + 1) % nb;

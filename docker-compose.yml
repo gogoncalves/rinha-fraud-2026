@@ -1,6 +1,6 @@
 services:
   api1:
-    image: gugagoncalves/rinha-2026-fraud:v37
+    image: gugagoncalves/rinha-2026-fraud:v55
     platform: linux/amd64
     cpuset: "0"
     logging:
@@ -10,10 +10,12 @@ services:
         soft: 65535
         hard: 65535
       memlock: -1
+      rtprio: 99
     environment:
       API_SOCKET_PREFIX: /sock/api1
       API_WORKERS: "1"
       MLOCK: "1"
+      WARMUP_MS: "1500"
     volumes:
       - sock:/sock
     network_mode: "none"
@@ -24,7 +26,7 @@ services:
           memory: "160MB"
 
   api2:
-    image: gugagoncalves/rinha-2026-fraud:v37
+    image: gugagoncalves/rinha-2026-fraud:v55
     platform: linux/amd64
     cpuset: "1"
     logging:
@@ -34,10 +36,12 @@ services:
         soft: 65535
         hard: 65535
       memlock: -1
+      rtprio: 99
     environment:
       API_SOCKET_PREFIX: /sock/api2
       API_WORKERS: "1"
       MLOCK: "1"
+      WARMUP_MS: "1500"
     volumes:
       - sock:/sock
     network_mode: "none"
@@ -48,7 +52,7 @@ services:
           memory: "160MB"
 
   lb:
-    image: gugagoncalves/rinha-2026-fraud:v37
+    image: gugagoncalves/rinha-2026-fraud:v55
     platform: linux/amd64
     cpuset: "2,3"
     entrypoint: ["/lb"]
