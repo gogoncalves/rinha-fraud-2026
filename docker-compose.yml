@@ -1,6 +1,6 @@
 services:
   api1:
-    image: gugagoncalves/rinha-2026-fraud:v52
+    image: gugagoncalves/rinha-2026-fraud:v54
     platform: linux/amd64
     cpuset: "0"
     logging:
@@ -10,15 +10,12 @@ services:
         soft: 65535
         hard: 65535
       memlock: -1
+      rtprio: 99
     environment:
       API_SOCKET_PREFIX: /sock/api1
-      API_WORKERS: "2"
+      API_WORKERS: "1"
       MLOCK: "1"
-      EPOLL_BUSY_POLL_US: "100"
-      EPOLL_BUSY_POLL_BUDGET: "8"
-      EPOLL_PREFER_BUSY_POLL: "1"
-      EPOLL_SPIN_US: "200"
-      EPOLL_IDLE_US: "5000"
+      WARMUP_MS: "1500"
     volumes:
       - sock:/sock
     network_mode: "none"
@@ -29,7 +26,7 @@ services:
           memory: "160MB"
 
   api2:
-    image: gugagoncalves/rinha-2026-fraud:v52
+    image: gugagoncalves/rinha-2026-fraud:v54
     platform: linux/amd64
     cpuset: "1"
     logging:
@@ -39,15 +36,12 @@ services:
         soft: 65535
         hard: 65535
       memlock: -1
+      rtprio: 99
     environment:
       API_SOCKET_PREFIX: /sock/api2
-      API_WORKERS: "2"
+      API_WORKERS: "1"
       MLOCK: "1"
-      EPOLL_BUSY_POLL_US: "100"
-      EPOLL_BUSY_POLL_BUDGET: "8"
-      EPOLL_PREFER_BUSY_POLL: "1"
-      EPOLL_SPIN_US: "200"
-      EPOLL_IDLE_US: "5000"
+      WARMUP_MS: "1500"
     volumes:
       - sock:/sock
     network_mode: "none"
@@ -58,7 +52,7 @@ services:
           memory: "160MB"
 
   lb:
-    image: gugagoncalves/rinha-2026-fraud:v52
+    image: gugagoncalves/rinha-2026-fraud:v54
     platform: linux/amd64
     cpuset: "2,3"
     entrypoint: ["/lb"]
@@ -72,7 +66,7 @@ services:
       LB_PORT: "9999"
       LB_BACKLOG: "65535"
       LB_ACCEPT_BATCH: "128"
-      API_SOCKETS: "/sock/api1-w0.sock,/sock/api1-w1.sock,/sock/api2-w0.sock,/sock/api2-w1.sock"
+      API_SOCKETS: "/sock/api1-w0.sock,/sock/api2-w0.sock"
     volumes:
       - sock:/sock
     depends_on: [api1, api2]
