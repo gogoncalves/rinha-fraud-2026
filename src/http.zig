@@ -4,6 +4,7 @@ const norm = @import("normalize.zig");
 const idx_mod = @import("index.zig");
 const Index = idx_mod.Index;
 const tree = @import("tree.zig");
+const partition = @import("partition.zig");
 
 pub const Parsed = struct {
     method: enum { get_ready, post_score, other },
@@ -89,6 +90,21 @@ pub fn respond(idx: *const Index, req: Parsed) []const u8 {
                 @branchHint(.likely);
                 const c = tree.LEAF_COUNT_OF[leaf];
                 return SCORES[@min(c, 5)];
+            }
+            // Mode B: route-restricted partition bypass. Fires only when both
+            // the leaf and the partition_key are in a tightly-audited whitelist
+            // where every observed sample agreed on the cached verdict. Final
+            // safety net before the KNN scan.
+            if (tree.LEAF_SAFE_B[leaf]) {
+                @branchHint(.unlikely);
+                const part = partition.partitionKey(&qq);
+                const mask = tree.LEAF_B_PART_MASK[leaf];
+                const word = part >> 6;
+                const bit: u6 = @intCast(part & 63);
+                if (((mask[word] >> bit) & 1) != 0) {
+                    const c = tree.LEAF_B_VERDICT[leaf];
+                    return SCORES[@min(c, 5)];
+                }
             }
             const frauds = idx.score_qq(&qq);
             return SCORES[@min(frauds, 5)];
